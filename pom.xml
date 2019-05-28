@@ -340,18 +340,6 @@
                     <version>2.10</version>
                 </plugin>
                 <plugin>
-                    <groupId>org.apache.maven.plugins</groupId>
-                    <artifactId>maven-release-plugin</artifactId>
-                    <configuration>
-                        <preparationGoals>clean install</preparationGoals>
-                        <autoVersionSubmodules>true</autoVersionSubmodules>
-                    </configuration>
-                </plugin>
-                <plugin>
-                    <groupId>org.apache.maven.plugins</groupId>
-                    <artifactId>maven-deploy-plugin</artifactId>
-                </plugin>
-                <plugin>
                     <groupId>org.wso2.siddhi</groupId>
                     <artifactId>siddhi-doc-gen</artifactId>
                     <version>${project.version}</version>
@@ -469,13 +457,6 @@
         <mavan.findbugsplugin.exclude.file>findbugs-exclude.xml</mavan.findbugsplugin.exclude.file>
         <mavan.checkstyle.suppression.file>checkstyle-suppressions.xml</mavan.checkstyle.suppression.file>
     </properties>
-
-    <scm>
-        <url>https://github.com/siddhi-io/siddhi.git</url>
-        <developerConnection>scm:git:https://github.com/siddhi-io/siddhi.git</developerConnection>
-        <connection>scm:git:https://github.com/siddhi-io/siddhi.git</connection>
-        <tag>v4.5.9</tag>
-    </scm>
 
     <repositories>
         <repository>
