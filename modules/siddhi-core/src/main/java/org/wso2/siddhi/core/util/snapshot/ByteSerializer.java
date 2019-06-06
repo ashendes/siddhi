@@ -40,26 +40,52 @@ public class ByteSerializer {
     public static byte[] objectToByte(Object obj, SiddhiAppContext siddhiAppContext) {
         long start = System.currentTimeMillis();
         byte[] out = null;
+
         if (obj != null) {
+            ByteArrayOutputStream baos = new ByteArrayOutputStream();
+            ObjectOutputStream oos = null;
             try {
-                ByteArrayOutputStream baos = new ByteArrayOutputStream();
-                ObjectOutputStream oos = new ObjectOutputStream(baos);
+                oos = new ObjectOutputStream(baos);
                 oos.writeObject(obj);
+                oos.reset();
+                oos.flush();
                 out = baos.toByteArray();
             } catch (IOException e) {
                 log.error(ExceptionUtil.getMessageWithContext(e, siddhiAppContext) +
                         " Error when writing byte array.", e);
                 return null;
+            } finally {
+                try {
+                    baos.close();
+                } catch (IOException e) {
+                    log.error(ExceptionUtil.getMessageWithContext(e, siddhiAppContext) +
+                            " Error when closing ByteArrayOutputStream.", e);
+                }
+                if (oos != null) {
+                    try {
+                        oos.close();
+                    } catch (IOException e) {
+                        log.error(ExceptionUtil.getMessageWithContext(e, siddhiAppContext) +
+                                " Error when closing ObjectOutputStream.", e);
+                    }
+                }
             }
         }
         long end = System.currentTimeMillis();
         if (log.isDebugEnabled()) {
-            log.debug("For SiddhiApp '" + siddhiAppContext.getName() + "'. Encoded in :" + (end - start) + " msec");
+            if (out != null) {
+                log.debug("SiddhiApp '" + siddhiAppContext.getName() + "' encoded in :" + (end - start) +
+                        " msec, with a size of: " + out.length + " bytes.");
+            }
         }
         return out;
     }
 
     public static Object byteToObject(byte[] bytes, SiddhiAppContext siddhiAppContext) {
+        if (log.isDebugEnabled()) {
+            log.debug("SiddhiApp '" + siddhiAppContext.getName() + "'. is tobe decoded with a size of: " +
+                    bytes.length + " bytes.");
+        }
         long start = System.currentTimeMillis();
         Object out = null;
         if (bytes != null) {
@@ -67,11 +93,7 @@ public class ByteSerializer {
                 ByteArrayInputStream bios = new ByteArrayInputStream(bytes);
                 ObjectInputStream ois = new ObjectInputStream(bios);
                 out = ois.readObject();
-            } catch (IOException e) {
-                log.error(ExceptionUtil.getMessageWithContext(e, siddhiAppContext) +
-                        " Error when writing to object.", e);
-                return null;
-            } catch (ClassNotFoundException e) {
+            } catch (IOException | ClassNotFoundException e) {
                 log.error(ExceptionUtil.getMessageWithContext(e, siddhiAppContext) +
                         " Error when writing to object.", e);
                 return null;
