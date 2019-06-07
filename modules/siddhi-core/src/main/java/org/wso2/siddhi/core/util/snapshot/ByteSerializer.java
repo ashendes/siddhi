@@ -93,7 +93,7 @@ public class ByteSerializer {
                 ByteArrayInputStream bios = new ByteArrayInputStream(bytes);
                 ObjectInputStream ois = new ObjectInputStream(bios);
                 out = ois.readObject();
-            } catch (IOException | ClassNotFoundException e) {
+            } catch (Throwable e) {
                 log.error(ExceptionUtil.getMessageWithContext(e, siddhiAppContext) +
                         " Error when writing to object.", e);
                 return null;
