@@ -24,12 +24,14 @@ import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 import org.wso2.siddhi.core.SiddhiAppRuntime;
 import org.wso2.siddhi.core.SiddhiManager;
+import org.wso2.siddhi.core.UnitTestAppender;
 import org.wso2.siddhi.core.event.Event;
 import org.wso2.siddhi.core.exception.SiddhiAppCreationException;
 import org.wso2.siddhi.core.exception.StoreQueryCreationException;
 import org.wso2.siddhi.core.query.output.callback.QueryCallback;
 import org.wso2.siddhi.core.stream.input.InputHandler;
 import org.wso2.siddhi.core.util.EventPrinter;
+import org.wso2.siddhi.core.util.Scheduler;
 import org.wso2.siddhi.core.util.SiddhiTestHelper;
 import org.wso2.siddhi.core.util.config.InMemoryConfigManager;
 
@@ -44,18 +46,15 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class Aggregation2TestCase {
 
     private static final Logger LOG = Logger.getLogger(Aggregation2TestCase.class);
-    private AtomicInteger inEventCount;
-    private AtomicInteger removeEventCount;
     private boolean eventArrived;
+    private AtomicInteger inEventCount;
     private List<Object[]> inEventsList;
-    private List<Object[]> removeEventsList;
+
     @BeforeMethod
     public void init() {
         inEventCount = new AtomicInteger(0);
-        removeEventCount = new AtomicInteger(0);
         eventArrived = false;
         inEventsList = new ArrayList<>();
-        removeEventsList = new ArrayList<>();
     }
 
     @Test
@@ -67,7 +66,7 @@ public class Aggregation2TestCase {
         String stockStream =
                 "define stream stockStream (symbol string, price float, lastClosingPrice float, volume long , " +
                         "quantity int, timestamp long);";
-        String query =  "define aggregation stockAggregation " +
+        String query = "define aggregation stockAggregation " +
                 "from stockStream " +
                 "select symbol, sum(price) as totalPrice, avg(price) as avgPrice " +
                 "group by symbol " +
@@ -100,7 +99,10 @@ public class Aggregation2TestCase {
 
             Event[] events = siddhiAppRuntime.query("from stockAggregation within 0L, 1543664151000L per " +
                     "'minutes' select AGG_TIMESTAMP, symbol, totalPrice, avgPrice ");
+
+            AssertJUnit.assertNotNull("Check if events arrived", events);
             AssertJUnit.assertEquals("Check time windows", 2, events.length);
+
             List<Object[]> eventsList = new ArrayList<>();
             for (Event event : events) {
                 eventsList.add(event.getData());
@@ -110,9 +112,8 @@ public class Aggregation2TestCase {
                     new Object[]{1496289900000L, "WSO2", 650.0, 216.66666666666666},
                     new Object[]{1496289900000L, "IBM", 1500.0, 375.0}
             );
-            AssertJUnit.assertEquals("Data Matched", true,
-                    SiddhiTestHelper.isUnsortedEventsMatch(eventsList, expected));
-        }  finally {
+            AssertJUnit.assertTrue("Data Matched", SiddhiTestHelper.isUnsortedEventsMatch(eventsList, expected));
+        } finally {
             siddhiAppRuntime.shutdown();
         }
     }
@@ -126,7 +127,7 @@ public class Aggregation2TestCase {
         String stockStream =
                 "define stream stockStream (symbol string, price float, lastClosingPrice float, volume long , " +
                         "quantity int, timestamp long);";
-        String query =  "define aggregation stockAggregation " +
+        String query = "define aggregation stockAggregation " +
                 "from stockStream " +
                 "select symbol, sum(price) as totalPrice " +
                 "group by symbol " +
@@ -155,11 +156,14 @@ public class Aggregation2TestCase {
             stockStreamInputHandler.send(new Object[]{"IBM", 100f, null, 200L, 26, 1496289953000L});
             stockStreamInputHandler.send(new Object[]{"WSO2", 100f, null, 200L, 96, 1496289953000L});
 
-            Thread.sleep(100);
+            Thread.sleep(2000);
 
             Event[] events = siddhiAppRuntime.query("from stockAggregation within 0L, 1543664151000L per " +
                     "'seconds' select AGG_TIMESTAMP, symbol, totalPrice ");
+
+            AssertJUnit.assertNotNull("Check if events arrived", events);
             AssertJUnit.assertEquals("Check time windows", 7, events.length);
+
             List<Object[]> eventsList = new ArrayList<>();
             for (Event event : events) {
                 eventsList.add(event.getData());
@@ -175,9 +179,8 @@ public class Aggregation2TestCase {
                     new Object[]{1496289953000L, "WSO2", 100.0}
             );
 
-            AssertJUnit.assertEquals("Data Matched", true,
-                    SiddhiTestHelper.isUnsortedEventsMatch(eventsList, expected));
-        }  finally {
+            AssertJUnit.assertTrue("Data Matched", SiddhiTestHelper.isUnsortedEventsMatch(eventsList, expected));
+        } finally {
             siddhiAppRuntime.shutdown();
         }
     }
@@ -223,14 +226,6 @@ public class Aggregation2TestCase {
                         }
                         eventArrived = true;
                     }
-                    if (removeEvents != null) {
-                        EventPrinter.print(timestamp, inEvents, removeEvents);
-                        for (Event event : removeEvents) {
-                            removeEventsList.add(event.getData());
-                            removeEventCount.incrementAndGet();
-                        }
-                    }
-                    eventArrived = true;
                 }
             });
 
@@ -248,15 +243,14 @@ public class Aggregation2TestCase {
             stockStreamInputHandler.send(new Object[]{"WSO2", 60f, 44f, 200L, 56, "2017-06-01 04:05:52"});
             stockStreamInputHandler.send(new Object[]{"WSO2", 100f, null, 200L, 16, "2017-06-01 04:05:52"});
 
-            // Thursday, June 1, 2017 4:05:50 AM (out of order. must be processed with 1st event for 50th second)
+            // Thursday, June 1, 2017 4:05:50 AM (out of order.)
             stockStreamInputHandler.send(new Object[]{"WSO2", 70f, null, 40L, 10, "2017-06-01 04:05:50"});
 
             // Thursday, June 1, 2017 4:05:54 AM
             stockStreamInputHandler.send(new Object[]{"IBM", 100f, null, 200L, 26, "2017-06-01 04:05:54"});
             stockStreamInputHandler.send(new Object[]{"IBM", 100f, null, 200L, 96, "2017-06-01 04:05:54"});
 
-            // Thursday, June 1, 2017 4:05:50 AM (out of order. should not be processed since events for 50th second is
-            // no longer in the buffer and @IgnoreEventsOlderThanBuffer is true)
+            // Thursday, June 1, 2017 4:05:50 AM (out of order.)
             stockStreamInputHandler.send(new Object[]{"IBM", 50f, 60f, 90L, 6, "2017-06-01 04:05:50"});
 
             Thread.sleep(1000);
@@ -284,10 +278,11 @@ public class Aggregation2TestCase {
             expected.add(new Object[]{283.0769230769231, 3680.0, 14000f});
 
             SiddhiTestHelper.waitForEvents(100, 1, inEventCount, 60000);
-            AssertJUnit.assertEquals("In events matched", true,
-                    SiddhiTestHelper.isUnsortedEventsMatch(inEventsList, expected));
+
+            AssertJUnit.assertTrue("Event arrived", eventArrived);
             AssertJUnit.assertEquals("Number of success events", 1, inEventCount.get());
-            AssertJUnit.assertEquals("Event arrived", true, eventArrived);
+            AssertJUnit.assertTrue("In events matched", SiddhiTestHelper.isUnsortedEventsMatch(inEventsList, expected));
+
         } finally {
             siddhiAppRuntime.shutdown();
         }
@@ -295,7 +290,7 @@ public class Aggregation2TestCase {
 
     @Test(dependsOnMethods = {"incrementalStreamProcessorTest49"},
             expectedExceptions = StoreQueryCreationException.class)
-    public void incrementalStreamProcessorTest50() throws InterruptedException {
+    public void incrementalStreamProcessorTest50() {
         LOG.info("incrementalStreamProcessorTest50 - Retrieval query syntax validating ");
 
         SiddhiManager siddhiManager = new SiddhiManager();
@@ -358,14 +353,6 @@ public class Aggregation2TestCase {
                         }
                         eventArrived = true;
                     }
-                    if (removeEvents != null) {
-                        EventPrinter.print(timestamp, inEvents, removeEvents);
-                        for (Event event : removeEvents) {
-                            removeEventsList.add(event.getData());
-                            removeEventCount.incrementAndGet();
-                        }
-                    }
-                    eventArrived = true;
                 }
             });
 
@@ -424,12 +411,12 @@ public class Aggregation2TestCase {
 
             SiddhiTestHelper.waitForEvents(100, 2, inEventCount, 60000);
 
-            AssertJUnit.assertEquals("In events matched", true,
-                    SiddhiTestHelper.isEventsMatch(firstJoinEvent, secondJoinEvent));
-            AssertJUnit.assertEquals("Store Query events matched", true,
-                    SiddhiTestHelper.isEventsMatch(storeQueryEvents1, storeQueryEvents2));
+            AssertJUnit.assertTrue("Event arrived", eventArrived);
             AssertJUnit.assertEquals("Number of success events", 2, inEventCount.get());
-            AssertJUnit.assertEquals("Event arrived", true, eventArrived);
+            AssertJUnit.assertTrue("In events matched",
+                                                SiddhiTestHelper.isEventsMatch(firstJoinEvent, secondJoinEvent));
+            AssertJUnit.assertTrue("Store Query events matched",
+                                            SiddhiTestHelper.isEventsMatch(storeQueryEvents1, storeQueryEvents2));
         } finally {
             siddhiAppRuntime.shutdown();
         }
@@ -454,8 +441,8 @@ public class Aggregation2TestCase {
         siddhiAppRuntime.start();
     }
 
-    @Test(dependsOnMethods = {"incrementalStreamProcessorTest52"}, expectedExceptions =
-            SiddhiAppCreationException.class)
+    @Test(dependsOnMethods = {"incrementalStreamProcessorTest52"},
+            expectedExceptions = SiddhiAppCreationException.class)
     public void incrementalStreamProcessorTest53() {
         LOG.info("incrementalStreamProcessorTest53 - Checking partitionbyid enable=true");
         SiddhiManager siddhiManager = new SiddhiManager();
@@ -492,8 +479,8 @@ public class Aggregation2TestCase {
         siddhiAppRuntime.shutdown();
     }
 
-    @Test(dependsOnMethods = {"incrementalStreamProcessorTest54"}, expectedExceptions =
-            SiddhiAppCreationException.class)
+    @Test(dependsOnMethods = {"incrementalStreamProcessorTest54"},
+            expectedExceptions = SiddhiAppCreationException.class)
     public void incrementalStreamProcessorTest55() {
 
         Map<String, String> propertiesMap = new HashMap<>();
@@ -518,8 +505,8 @@ public class Aggregation2TestCase {
     }
 
 
-    @Test(dependsOnMethods = {"incrementalStreamProcessorTest55"}, expectedExceptions =
-            SiddhiAppCreationException.class)
+    @Test(dependsOnMethods = {"incrementalStreamProcessorTest55"},
+            expectedExceptions = SiddhiAppCreationException.class)
     public void incrementalStreamProcessorTest56() {
 
         Map<String, String> propertiesMap = new HashMap<>();
@@ -543,6 +530,88 @@ public class Aggregation2TestCase {
         siddhiAppRuntime.start();
     }
 
+    @Test(dependsOnMethods = {"incrementalStreamProcessorTest56"})
+    public void incrementalStreamProcessorTest57() throws InterruptedException {
+        LOG.info("Check interrupted exception being thrown when SiddhiRuntime has already been shutdown");
+        Logger logger = Logger.getLogger(Scheduler.class);
+        UnitTestAppender appender = new UnitTestAppender();
+        logger.addAppender(appender);
+        SiddhiManager siddhiManager = new SiddhiManager();
+        String stockStream =
+                "define stream stockStream (symbol string, price float, lastClosingPrice float, volume long , " +
+                        "quantity int, timestamp long);";
+        String query = " define aggregation stockAggregation " +
+                "from stockStream " +
+                "select symbol, avg(price) as avgPrice, sum(price) as totalPrice, (price * quantity) " +
+                "as lastTradeValue  " +
+                "group by symbol " +
+                "aggregate by timestamp every sec...hour ;";
 
+        SiddhiAppRuntime siddhiAppRuntime = siddhiManager.createSiddhiAppRuntime(stockStream + query);
+        InputHandler stockStreamInputHandler = siddhiAppRuntime.getInputHandler("stockStream");
+        siddhiAppRuntime.start();
+        Thread eventSenderThread = new Thread(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    stockStreamInputHandler.send(new Event[]{
+                            new Event(System.currentTimeMillis(),
+                                    new Object[]{"WSO2", 50f, 60f, 90L, 6, 1496289950000L}),
+                            new Event(System.currentTimeMillis(),
+                                    new Object[]{"WSO2", 70f, null, 40L, 10, 1496289950000L}),
+                            new Event(System.currentTimeMillis(),
+                                    new Object[]{"WSO2", 60f, 44f, 200L, 56, 1496289952000L}),
+                            new Event(System.currentTimeMillis(),
+                                    new Object[]{"WSO2", 100f, null, 200L, 16, 1496289952000L}),
+                            new Event(System.currentTimeMillis(),
+                                    new Object[]{"IBM", 100f, null, 200L, 96, 1496289954000L}),
+                            new Event(System.currentTimeMillis(),
+                                    new Object[]{"IBM", 100f, null, 200L, 26, 1496289954000L})});
+                    stockStreamInputHandler.send(new Event[]{
+                            new Event(System.currentTimeMillis(),
+                                    new Object[]{"WSO2", 50f, 60f, 90L, 6, 1496289950000L}),
+                            new Event(System.currentTimeMillis(),
+                                    new Object[]{"WSO2", 70f, null, 40L, 10, 1496289950000L}),
+                            new Event(System.currentTimeMillis(),
+                                    new Object[]{"WSO2", 60f, 44f, 200L, 56, 1496289952000L}),
+                            new Event(System.currentTimeMillis(),
+                                    new Object[]{"WSO2", 100f, null, 200L, 16, 1496289952000L}),
+                            new Event(System.currentTimeMillis(),
+                                    new Object[]{"IBM", 100f, null, 200L, 96, 1496289954000L}),
+                            new Event(System.currentTimeMillis(),
+                                    new Object[]{"IBM", 100f, null, 200L, 26, 1496289954000L})});
+                    stockStreamInputHandler.send(new Event[]{
+                            new Event(System.currentTimeMillis(),
+                                    new Object[]{"WSO2", 50f, 60f, 90L, 6, 1496289950000L}),
+                            new Event(System.currentTimeMillis(),
+                                    new Object[]{"WSO2", 70f, null, 40L, 10, 1496289950000L}),
+                            new Event(System.currentTimeMillis(),
+                                    new Object[]{"WSO2", 60f, 44f, 200L, 56, 1496289952000L}),
+                            new Event(System.currentTimeMillis(),
+                                    new Object[]{"WSO2", 100f, null, 200L, 16, 1496289952000L}),
+                            new Event(System.currentTimeMillis(),
+                                    new Object[]{"IBM", 100f, null, 200L, 96, 1496289954000L}),
+                            new Event(System.currentTimeMillis(),
+                                    new Object[]{"IBM", 100f, null, 200L, 26, 1496289954000L})});
+                    Thread.sleep(500L);
+                } catch (InterruptedException e) {
+                }
+            }
+        }, "EventSenderThread");
+        eventSenderThread.start();
+        Thread siddhiRuntimeShutdownThread = new Thread(new Runnable() {
+            @Override
+            public void run() {
+                siddhiAppRuntime.shutdown();
+            }
+        }, "SiddhiRuntimeShutdownThread");
+        siddhiRuntimeShutdownThread.start();
+        Thread.sleep(10000L);
+        if (appender.getMessages() != null) {
+            AssertJUnit.assertFalse(appender.getMessages().contains("Error when adding time:"));
+        }
+        logger.removeAppender(appender);
+        siddhiAppRuntime.shutdown();
+    }
 }
 

@@ -45,6 +45,7 @@ public class IncrementalAggregationProcessor implements Processor {
     private final ThroughputTracker throughputTrackerInsert;
     private SiddhiAppContext siddhiAppContext;
     private AggregationRuntime aggregationRuntime;
+
     private boolean isFirstEventArrived;
 
     public IncrementalAggregationProcessor(AggregationRuntime aggregationRuntime,
@@ -74,7 +75,7 @@ public class IncrementalAggregationProcessor implements Processor {
             while (complexEventChunk.hasNext()) {
                 ComplexEvent complexEvent = complexEventChunk.next();
                 if (!isFirstEventArrived) {
-                    aggregationRuntime.recreateInMemoryData(true, false);
+                    aggregationRuntime.initialiseIncrementalExecutors(true);
                     isFirstEventArrived = true;
                 }
                 StreamEvent borrowedEvent = streamEventPool.borrowEvent();
