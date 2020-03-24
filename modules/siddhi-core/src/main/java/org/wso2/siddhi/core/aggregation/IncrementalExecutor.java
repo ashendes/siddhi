@@ -106,7 +106,6 @@ public class IncrementalExecutor implements Executor, Snapshotable {
             siddhiAppContext.getSnapshotService().addSnapshotable(aggregatorName, this);
         }
         executorService = Executors.newSingleThreadExecutor();
-
     }
 
     public void setScheduler(Scheduler scheduler) {

@@ -44,12 +44,14 @@ public class IncrementalDataAggregator {
 
     private final BaseIncrementalValueStore baseIncrementalValueStore;
     private final Map<String, BaseIncrementalValueStore> baseIncrementalValueStoreGroupByMap;
+    private String timeZone;
 
     public IncrementalDataAggregator(List<TimePeriod.Duration> incrementalDurations,
                                      TimePeriod.Duration aggregateForDuration, long oldestEventTimeStamp,
                                      List<ExpressionExecutor> baseExecutors,
-                                     ExpressionExecutor shouldUpdateTimestamp, MetaStreamEvent metaStreamEvent
-                                     ) {
+                                     ExpressionExecutor shouldUpdateTimestamp, MetaStreamEvent metaStreamEvent,
+                                     String timeZone) {
+        this.timeZone = timeZone;
         this.incrementalDurations = incrementalDurations;
         this.aggregateForDuration = aggregateForDuration;
         StreamEventPool streamEventPool = new StreamEventPool(metaStreamEvent, 10);
@@ -92,7 +94,7 @@ public class IncrementalDataAggregator {
 
     private void processInMemoryAggregates(StreamEvent streamEvent, long timestamp, String groupByKey) {
         long startTimeOfAggregates = IncrementalTimeConverterUtil.getStartTimeOfAggregates(timestamp,
-                aggregateForDuration);
+                aggregateForDuration, timeZone);
         synchronized (this) {
             if (groupByKey != null) {
                 BaseIncrementalValueStore aBaseIncrementalValueStore =
