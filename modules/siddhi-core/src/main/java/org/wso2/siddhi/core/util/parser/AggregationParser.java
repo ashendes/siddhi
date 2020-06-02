@@ -68,11 +68,14 @@ import org.wso2.siddhi.query.api.util.AnnotationHelper;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
+import java.util.concurrent.locks.ReentrantLock;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.locks.ReentrantLock;
+import java.util.Set;
 import java.util.stream.Collectors;
+import java.util.TimeZone;
 
 import static org.wso2.siddhi.core.util.ExpressionExecutorClonerUtil.getExpressionExecutorClone;
 import static org.wso2.siddhi.core.util.ExpressionExecutorClonerUtil.getExpressionExecutorClones;
@@ -105,7 +108,12 @@ public class AggregationParser {
                                            Map<String, Window> windowMap,
                                            Map<String, AggregationRuntime> aggregationMap,
                                            SiddhiAppRuntimeBuilder siddhiAppRuntimeBuilder) {
-
+        String timeZone = getTimeZone(siddhiAppContext);
+        if (!validateTimeZone(timeZone)) {
+            throw new SiddhiAppCreationException(
+                    "Given timeZone '" + timeZone + "' for aggregations is invalid. Please provide a valid time zone."
+            );
+        }
         if (aggregationDefinition == null) {
             throw new SiddhiAppCreationException(
                     "AggregationDefinition instance is null. " +
@@ -278,7 +286,8 @@ public class AggregationParser {
                             groupByExpressionList.addAll(groupByVariableList.stream()
                                     .map(groupByVariable -> (Expression) groupByVariable)
                                     .collect(Collectors.toList()));
-                            groupByKeyGenerator = new GroupByKeyGenerator(groupByExpressionList, processedMetaStreamEvent,
+                            groupByKeyGenerator = new GroupByKeyGenerator(groupByExpressionList,
+                                    processedMetaStreamEvent,
                                     SiddhiConstants.UNKNOWN_STATE, tableMap, processVariableExpressionExecutors,
                                     siddhiAppContext, aggregatorName);
                         }
@@ -337,7 +346,8 @@ public class AggregationParser {
 
             Map<TimePeriod.Duration, IncrementalExecutor> incrementalExecutorMap = buildIncrementalExecutors(
                     processedMetaStreamEvent, processExpressionExecutorsMap, groupByKeyGeneratorMap,
-                    incrementalDurations, aggregationTables, siddhiAppContext, aggregatorName, shouldUpdateTimestamp);
+                    incrementalDurations, aggregationTables, siddhiAppContext, aggregatorName, shouldUpdateTimestamp,
+                    timeZone);
 
             IncrementalDataPurger incrementalDataPurger = new IncrementalDataPurger();
             incrementalDataPurger.init(aggregationDefinition, new StreamEventPool(processedMetaStreamEvent, 10)
@@ -379,7 +389,7 @@ public class AggregationParser {
                     aggregationTables, outputExpressionExecutors, processExpressionExecutorsMap, shouldUpdateTimestamp,
                     groupByKeyGeneratorMapForReading, incrementalDataPurger, incrementalExecutorsInitialiser,
                     ((SingleStreamRuntime) streamRuntime), siddhiAppContext, processedMetaStreamEvent,
-                    latencyTrackerFind, throughputTrackerFind);
+                    latencyTrackerFind, throughputTrackerFind, timeZone);
 
             streamRuntime.setCommonProcessor(new IncrementalAggregationProcessor(aggregationRuntime,
                     incomingExpressionExecutors, processedMetaStreamEvent, latencyTrackerInsert,
@@ -393,13 +403,27 @@ public class AggregationParser {
         }
     }
 
+    private static String getTimeZone(SiddhiAppContext siddhiAppContext) {
+        String timeZone = siddhiAppContext.getSiddhiContext().getConfigManager().extractProperty(SiddhiConstants
+                .AGG_TIME_ZONE);
+        if (timeZone == null) {
+            return SiddhiConstants.AGG_TIME_ZONE_DEFAULT;
+        }
+        return timeZone;
+    }
+
+    private static Boolean validateTimeZone(String timeZone) {
+        Set timeZoneSet = new HashSet(Arrays.asList(TimeZone.getAvailableIDs()));
+        return timeZoneSet.contains(timeZone);
+    }
+
     private static Map<TimePeriod.Duration, IncrementalExecutor> buildIncrementalExecutors(
             MetaStreamEvent processedMetaStreamEvent,
             Map<TimePeriod.Duration, List<ExpressionExecutor>> processExpressionExecutorsMap,
             Map<TimePeriod.Duration, GroupByKeyGenerator> groupByKeyGeneratorList,
             List<TimePeriod.Duration> incrementalDurations,
             Map<TimePeriod.Duration, Table> aggregationTables, SiddhiAppContext siddhiAppContext,
-            String aggregatorName, ExpressionExecutor shouldUpdateTimestamp) {
+            String aggregatorName, ExpressionExecutor shouldUpdateTimestamp, String timeZone) {
         Map<TimePeriod.Duration, IncrementalExecutor> incrementalExecutorMap = new HashMap<>();
         // Create incremental executors
         IncrementalExecutor child;
@@ -416,7 +440,8 @@ public class AggregationParser {
             IncrementalExecutor incrementalExecutor = new IncrementalExecutor(aggregatorName, duration,
                     getExpressionExecutorClones(processExpressionExecutorsMap.get(duration)),
                     getExpressionExecutorClone(shouldUpdateTimestamp), groupByKeyGeneratorList.get(duration),
-                    processedMetaStreamEvent, child, isRoot, aggregationTables.get(duration), siddhiAppContext);
+                    processedMetaStreamEvent, child, isRoot, aggregationTables.get(duration), siddhiAppContext,
+                    timeZone);
 
             incrementalExecutorMap.put(duration, incrementalExecutor);
             root = incrementalExecutor;
