@@ -90,6 +90,7 @@ public class AggregationRuntime implements MemoryCalculable {
     private ThroughputTracker throughputTrackerFind;
 
     private boolean isFirstEventArrived;
+    private String timeZone;
 
     public AggregationRuntime(AggregationDefinition aggregationDefinition, boolean isProcessingOnExternalTime,
                               boolean isDistributed, List<TimePeriod.Duration> incrementalDurations,
@@ -103,8 +104,8 @@ public class AggregationRuntime implements MemoryCalculable {
                               IncrementalExecutorsInitialiser incrementalExecutorInitialiser,
                               SingleStreamRuntime singleStreamRuntime, SiddhiAppContext siddhiAppContext,
                               MetaStreamEvent tableMetaStreamEvent, LatencyTracker latencyTrackerFind,
-                              ThroughputTracker throughputTrackerFind) {
-
+                              ThroughputTracker throughputTrackerFind, String timeZone) {
+        this.timeZone = timeZone;
         this.aggregationDefinition = aggregationDefinition;
         this.isProcessingOnExternalTime = isProcessingOnExternalTime;
         this.isDistributed = isDistributed;
@@ -206,7 +207,7 @@ public class AggregationRuntime implements MemoryCalculable {
             }
             return ((IncrementalAggregateCompileCondition) compiledCondition).find(matchingEvent,
                     incrementalExecutorMap, aggregateProcessingExecutorsMap, groupByKeyGeneratorList,
-                    shouldUpdateTimestampExpressionExecutor);
+                    shouldUpdateTimestampExpressionExecutor, timeZone);
         } finally {
             SnapshotService.getSkipSnapshotableThreadLocal().set(null);
             if (latencyTrackerFind != null && Level.DETAIL.compareTo(siddhiAppContext.getRootMetricsLevel()) <= 0) {
