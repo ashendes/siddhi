@@ -60,6 +60,7 @@ public class IncrementalExecutorsInitialiser {
     private final Map<String, Table> tableMap;
     private final Map<String, Window> windowMap;
     private final Map<String, AggregationRuntime> aggregationMap;
+    private String timeZone;
 
     private boolean isInitialised;
 
@@ -69,7 +70,8 @@ public class IncrementalExecutorsInitialiser {
                                            boolean isDistributed, String shardId, SiddhiAppContext siddhiAppContext,
                                            MetaStreamEvent metaStreamEvent, Map<String, Table> tableMap,
                                            Map<String, Window> windowMap,
-                                           Map<String, AggregationRuntime> aggregationMap) {
+                                           Map<String, AggregationRuntime> aggregationMap, String timeZone) {
+        this.timeZone = timeZone;
         this.incrementalDurations = incrementalDurations;
         this.aggregationTables = aggregationTables;
         this.incrementalExecutorMap = incrementalExecutorMap;
@@ -106,7 +108,7 @@ public class IncrementalExecutorsInitialiser {
         if (events != null) {
             Long lastData = (Long) events[events.length - 1].getData(0);
             endOFLatestEventTimestamp = IncrementalTimeConverterUtil
-                    .getNextEmitTime(lastData, incrementalDurations.get(incrementalDurations.size() - 1), null);
+                    .getNextEmitTime(lastData, incrementalDurations.get(incrementalDurations.size() - 1), timeZone);
         }
 
         for (int i = incrementalDurations.size() - 1; i > 0; i--) {
@@ -128,7 +130,7 @@ public class IncrementalExecutorsInitialiser {
             if (events != null) {
                 long referenceToNextLatestEvent = (Long) events[events.length - 1].getData(0);
                 endOFLatestEventTimestamp = IncrementalTimeConverterUtil
-                        .getNextEmitTime(referenceToNextLatestEvent, incrementalDurations.get(i - 1), null);
+                        .getNextEmitTime(referenceToNextLatestEvent, incrementalDurations.get(i - 1), timeZone);
 
                 ComplexEventChunk<StreamEvent> complexEventChunk = new ComplexEventChunk<>(false);
                 for (Event event : events) {
@@ -142,7 +144,7 @@ public class IncrementalExecutorsInitialiser {
                     TimePeriod.Duration rootDuration = incrementalDurations.get(0);
                     IncrementalExecutor rootIncrementalExecutor = incrementalExecutorMap.get(rootDuration);
                     long emitTimeOfLatestEventInTable = IncrementalTimeConverterUtil.getNextEmitTime(
-                            referenceToNextLatestEvent, rootDuration, null);
+                            referenceToNextLatestEvent, rootDuration, timeZone);
 
                     rootIncrementalExecutor.setEmitTimestamp(emitTimeOfLatestEventInTable);
 

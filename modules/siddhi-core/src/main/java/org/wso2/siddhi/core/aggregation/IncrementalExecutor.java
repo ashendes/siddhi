@@ -65,6 +65,7 @@ public class IncrementalExecutor implements Executor, Snapshotable {
     private boolean isProcessingExecutor;
     private SiddhiAppContext siddhiAppContext;
     private ExecutorService executorService;
+    private String timeZone;
 
     private BaseIncrementalValueStore baseIncrementalValueStore;
     private Map<String, BaseIncrementalValueStore> baseIncrementalValueStoreGroupByMap = null;
@@ -74,7 +75,8 @@ public class IncrementalExecutor implements Executor, Snapshotable {
                                ExpressionExecutor shouldUpdateTimestamp,
                                GroupByKeyGenerator groupByKeyGenerator, MetaStreamEvent metaStreamEvent,
                                IncrementalExecutor child, boolean isRoot, Table table,
-                               SiddhiAppContext siddhiAppContext) {
+                               SiddhiAppContext siddhiAppContext, String timeZone) {
+        this.timeZone = timeZone;
         this.duration = duration;
         this.next = child;
         this.isRoot = isRoot;
@@ -124,10 +126,11 @@ public class IncrementalExecutor implements Executor, Snapshotable {
 
             long timestamp = getTimestamp(streamEvent);
 
-            startTimeOfAggregates = IncrementalTimeConverterUtil.getStartTimeOfAggregates(timestamp, duration);
+            startTimeOfAggregates = IncrementalTimeConverterUtil.getStartTimeOfAggregates(timestamp, duration,
+                    timeZone);
 
             if (timestamp >= nextEmitTime) {
-                nextEmitTime = IncrementalTimeConverterUtil.getNextEmitTime(timestamp, duration, null);
+                nextEmitTime = IncrementalTimeConverterUtil.getNextEmitTime(timestamp, duration, timeZone);
                 dispatchAggregateEvents(startTimeOfAggregates);
                 sendTimerEvent();
             }
@@ -153,14 +156,14 @@ public class IncrementalExecutor implements Executor, Snapshotable {
         if (streamEvent.getType() == ComplexEvent.Type.CURRENT) {
             timestamp = (long) timestampExpressionExecutor.execute(streamEvent);
             if (isRoot && !timerStarted) {
-                scheduler.notifyAt(IncrementalTimeConverterUtil.getNextEmitTime(timestamp, duration, null));
+                scheduler.notifyAt(IncrementalTimeConverterUtil.getNextEmitTime(timestamp, duration, timeZone));
                 timerStarted = true;
             }
         } else {
             timestamp = streamEvent.getTimestamp();
             if (isRoot) {
                 // Scheduling is done by root incremental executor only
-                scheduler.notifyAt(IncrementalTimeConverterUtil.getNextEmitTime(timestamp, duration, null));
+                scheduler.notifyAt(IncrementalTimeConverterUtil.getNextEmitTime(timestamp, duration, timeZone));
             }
         }
         return timestamp;
@@ -241,10 +244,8 @@ public class IncrementalExecutor implements Executor, Snapshotable {
                     try {
                         table.addEvents(tableEventChunk, 1);
                     } catch (Throwable t) {
-                        LOG.error("Exception occurred at siddhi app '" + siddhiAppContext.getName() +
-                                "' when performing table writes of aggregation '" + this.aggregatorName +
-                                "' for duration '" + this.duration + "'. This should be investigated as this can " +
-                                "cause accuracy loss.", t);
+                        LOG.error("Exception occurred when writing to aggregation table of duration '" +
+                                this.duration + "'. This should be investigated as this can cause accuracy loss.", t);
                     }
                 });
             }
@@ -272,10 +273,8 @@ public class IncrementalExecutor implements Executor, Snapshotable {
                     try {
                         table.addEvents(tableEventChunk, noOfEvents);
                     } catch (Throwable t) {
-                        LOG.error("Exception occurred at siddhi app '" + siddhiAppContext.getName() +
-                                "' when performing table writes of aggregation '" + this.aggregatorName +
-                                "' for duration '" + this.duration + "'. This should be investigated as this can " +
-                                "cause accuracy loss.", t);
+                        LOG.error("Exception occurred when writing to aggregation table of duration '" +
+                                this.duration + "'. This should be investigated as this can cause accuracy loss.", t);
                     }
                 });
             }

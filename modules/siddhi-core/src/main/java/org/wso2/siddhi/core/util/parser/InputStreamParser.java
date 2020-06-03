@@ -29,6 +29,7 @@ import org.wso2.siddhi.core.table.Table;
 import org.wso2.siddhi.core.util.statistics.LatencyTracker;
 import org.wso2.siddhi.core.window.Window;
 import org.wso2.siddhi.query.api.definition.AbstractDefinition;
+import org.wso2.siddhi.query.api.execution.query.Query;
 import org.wso2.siddhi.query.api.execution.query.input.stream.BasicSingleInputStream;
 import org.wso2.siddhi.query.api.execution.query.input.stream.InputStream;
 import org.wso2.siddhi.query.api.execution.query.input.stream.JoinInputStream;
@@ -61,7 +62,7 @@ public class InputStreamParser {
      * @param queryName                  query name of input stream belongs to.
      * @return StreamRuntime
      */
-    public static StreamRuntime parse(InputStream inputStream, SiddhiAppContext siddhiAppContext,
+    public static StreamRuntime parse(InputStream inputStream, SiddhiAppContext siddhiAppContext, Query query,
                                       Map<String, AbstractDefinition> streamDefinitionMap,
                                       Map<String, AbstractDefinition> tableDefinitionMap,
                                       Map<String, AbstractDefinition> windowDefinitionMap,
@@ -87,8 +88,8 @@ public class InputStreamParser {
                     new MetaStreamEvent(), processStreamReceiver,
                     true, outputExpectsExpiredEvents, queryName);
         } else if (inputStream instanceof JoinInputStream) {
-            return JoinInputStreamParser.parseInputStream(((JoinInputStream) inputStream), siddhiAppContext,
-                    streamDefinitionMap, tableDefinitionMap, windowDefinitionMap,
+            return JoinInputStreamParser.parseInputStream(((JoinInputStream) inputStream), query,
+                    siddhiAppContext, streamDefinitionMap, tableDefinitionMap, windowDefinitionMap,
                     aggregationDefinitionMap, tableMap, windowMap, aggregationMap,
                     executors, latencyTracker, outputExpectsExpiredEvents,
                     queryName);
