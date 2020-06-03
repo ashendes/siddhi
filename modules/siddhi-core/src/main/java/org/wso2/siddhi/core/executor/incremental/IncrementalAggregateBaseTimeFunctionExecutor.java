@@ -23,6 +23,7 @@ import org.wso2.siddhi.core.exception.SiddhiAppRuntimeException;
 import org.wso2.siddhi.core.executor.ExpressionExecutor;
 import org.wso2.siddhi.core.executor.function.FunctionExecutor;
 import org.wso2.siddhi.core.util.IncrementalTimeConverterUtil;
+import org.wso2.siddhi.core.util.SiddhiConstants;
 import org.wso2.siddhi.core.util.config.ConfigReader;
 import org.wso2.siddhi.query.api.aggregation.TimePeriod;
 import org.wso2.siddhi.query.api.definition.Attribute;
@@ -35,6 +36,7 @@ import java.util.Map;
  * This is important when retrieving incremental aggregate values by specifying a time range with 'within' clause.
  */
 public class IncrementalAggregateBaseTimeFunctionExecutor extends FunctionExecutor {
+    private String timeZone;
 
     @Override
     protected void init(ExpressionExecutor[] attributeExpressionExecutors, ConfigReader configReader,
@@ -47,6 +49,11 @@ public class IncrementalAggregateBaseTimeFunctionExecutor extends FunctionExecut
             throw new SiddhiAppValidationException("Second argument of " +
                     "incrementalAggregator:getAggregationStartTime() function accepts should be of type 'STRING', " +
                     "but found '" + attributeExpressionExecutors[1].getReturnType() + "'.");
+        }
+        this.timeZone = siddhiAppContext.getSiddhiContext().getConfigManager().extractProperty(SiddhiConstants
+                .AGG_TIME_ZONE);
+        if (timeZone == null) {
+            this.timeZone = SiddhiConstants.AGG_TIME_ZONE_DEFAULT;
         }
     }
 
@@ -79,7 +86,7 @@ public class IncrementalAggregateBaseTimeFunctionExecutor extends FunctionExecut
                 throw new SiddhiAppRuntimeException("Duration '" + durationName + "' used for " +
                         "incrementalAggregator:aggregateBaseTime() is invalid.");
         }
-        return IncrementalTimeConverterUtil.getStartTimeOfAggregates(time, duration);
+        return IncrementalTimeConverterUtil.getStartTimeOfAggregates(time, duration, timeZone);
     }
 
     @Override
