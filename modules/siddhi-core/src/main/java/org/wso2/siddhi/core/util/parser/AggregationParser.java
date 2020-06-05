@@ -357,7 +357,7 @@ public class AggregationParser {
             IncrementalExecutorsInitialiser incrementalExecutorsInitialiser =
                     new IncrementalExecutorsInitialiser(incrementalDurations, aggregationTables, incrementalExecutorMap,
                             isDistributed, shardId, siddhiAppContext, processedMetaStreamEvent, tableMap, windowMap,
-                            aggregationMap);
+                            aggregationMap, timeZone);
 
             IncrementalExecutor rootIncrementalExecutor = incrementalExecutorMap.get(incrementalDurations.get(0));
             rootIncrementalExecutor.setScheduler(scheduler);
