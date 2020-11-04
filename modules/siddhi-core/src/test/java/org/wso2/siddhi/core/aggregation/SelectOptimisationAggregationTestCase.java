@@ -59,7 +59,7 @@ public class SelectOptimisationAggregationTestCase {
                         "quantity int, timestamp long);";
         String query =
 
-                "@purge(enable=\"false\") define aggregation stockAggregation " +
+                "define aggregation stockAggregation " +
                         "from stockStream " +
                         "select count() as count " +
                         "aggregate by timestamp every sec, min ;" +
