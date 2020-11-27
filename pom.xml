@@ -26,7 +26,7 @@
     <groupId>org.wso2.siddhi</groupId>
     <artifactId>siddhi</artifactId>
     <packaging>pom</packaging>
-    <version>4.5.9</version>
+    <version>4.5.9.1-SNAPSHOT</version>
     <name>Siddhi</name>
     <description>Siddhi, high performing Complex Event Processing Engine</description>
 
@@ -453,7 +453,7 @@
         <org.jacoco.version>0.7.9</org.jacoco.version>
         <mavan.findbugsplugin.exclude.file>findbugs-exclude.xml</mavan.findbugsplugin.exclude.file>
         <mavan.checkstyle.suppression.file>checkstyle-suppressions.xml</mavan.checkstyle.suppression.file>
-    </properties>
+    <project.scm.id>wso2-scm-server</project.scm.id></properties>
 
     <repositories>
         <repository>
