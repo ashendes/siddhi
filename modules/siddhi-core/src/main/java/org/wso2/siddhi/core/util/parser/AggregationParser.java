@@ -54,6 +54,7 @@ import org.wso2.siddhi.core.query.selector.attribute.aggregator.MaxAttributeAggr
 import org.wso2.siddhi.core.query.selector.attribute.aggregator.MinAttributeAggregator;
 import org.wso2.siddhi.core.query.selector.attribute.aggregator.SumAttributeAggregator;
 import org.wso2.siddhi.core.query.selector.attribute.aggregator.incremental.IncrementalAttributeAggregator;
+import org.wso2.siddhi.core.query.selector.attribute.processor.executor.GroupByAggregationAttributeExecutor;
 import org.wso2.siddhi.core.table.Table;
 import org.wso2.siddhi.core.util.ExceptionUtil;
 import org.wso2.siddhi.core.util.Scheduler;
@@ -340,8 +341,8 @@ public class AggregationParser {
 
             ExpressionExecutor shouldUpdateTimestamp = null;
             if (isLatestEventColAdded) {
-                Expression shouldUpdateExp = AttributeFunction.function( "incrementalAggregator", "shouldUpdate",
-                                                                               new Variable(AGG_LAST_TIMESTAMP_COL));
+                Expression shouldUpdateExp = AttributeFunction.function("incrementalAggregator", "shouldUpdate",
+                        new Variable(AGG_LAST_TIMESTAMP_COL));
                 shouldUpdateTimestamp = ExpressionParser.parseExpression(shouldUpdateExp, processedMetaStreamEvent,
                         0, tableMap, processVariableExpressionExecutors, siddhiAppContext, false, 0, aggregatorName);
             }
@@ -622,7 +623,7 @@ public class AggregationParser {
 
         if (isDistributed) {
             Expression shardIdExpression = Expression.value(shardId);
-            ExpressionExecutor shardIdExpressionExecutor = ExpressionParser.parseExpression( shardIdExpression,
+            ExpressionExecutor shardIdExpressionExecutor = ExpressionParser.parseExpression(shardIdExpression,
                     processedMetaStreamEvent, 0, tableMap, processVariableExpressionExecutors, siddhiAppContext,
                     groupBy, 0, aggregatorName);
             processExpressionExecutors.add(shardIdExpressionExecutor);
@@ -661,7 +662,7 @@ public class AggregationParser {
                             "max",
                             new Variable(AGG_LAST_TIMESTAMP_COL)
                     );
-            ExpressionExecutor latestTimestampExecutor = ExpressionParser.parseExpression( lastTimestampExpression,
+            ExpressionExecutor latestTimestampExecutor = ExpressionParser.parseExpression(lastTimestampExpression,
                     processedMetaStreamEvent, 0, tableMap, processVariableExpressionExecutors, siddhiAppContext,
                     groupBy, 0, aggregatorName);
             processExpressionExecutors.add(latestTimestampExecutor);
@@ -894,9 +895,9 @@ public class AggregationParser {
                 0, tableMap, incomingVariableExpressionExecutors, siddhiAppContext, false, 0, aggregatorName);
         incomingExpressionExecutors.add(expressionExecutor);
         incomingMetaStreamEvent.addOutputData(
-                                new Attribute(outputAttribute.getRename(), expressionExecutor.getReturnType()));
+                new Attribute(outputAttribute.getRename(), expressionExecutor.getReturnType()));
         aggregationDefinition.getAttributeList().add(
-                                new Attribute(outputAttribute.getRename(), expressionExecutor.getReturnType()));
+                new Attribute(outputAttribute.getRename(), expressionExecutor.getReturnType()));
         outputExpressions.add(Expression.variable(outputAttribute.getRename()));
     }
 
@@ -1152,6 +1153,7 @@ public class AggregationParser {
         Map<Attribute, int[]> cudInputStreamAttributesList =
                 generateCUDInputStreamAttributes(isProcessingOnExternalTime);
         StreamDefinition inputDefinition = new StreamDefinition();
+        inputDefinition.setId("inputStream");
         for (Attribute attribute : cudInputStreamAttributesList.keySet()) {
             metaStreamEvent.addData(attribute);
             inputDefinition.attribute(attribute.getName(), attribute.getType());
@@ -1263,35 +1265,40 @@ public class AggregationParser {
                     } else {
                         outerSelectColumnJoiner.add(" ? " + SQL_AS + attributeList.get(i).getName());
                     }
-                } else if (expressionExecutor instanceof MaxAttributeAggregator) {
-                    if (attributeList.get(i).getName().equals(AGG_LAST_TIMESTAMP_COL)) {
-                        innerSelectT2ColumnJoiner.add(dbAggregationSelectFunctionTemplates.getMaxFunction().
-                                replace(PLACEHOLDER_COLUMN, attributeList.get(i).getName()));
-                        subSelectT2ColumnJoiner.add(attributeList.get(i).getName());
-                        outerSelectColumnJoiner.add(SUB_SELECT_QUERY_REF_T2 + "." + attributeList.get(i).getName() +
-                                SQL_AS + attributeList.get(i).getName());
-                    } else {
+                } else if (expressionExecutor instanceof ConstantExpressionExecutor){
+                    outerSelectColumnJoiner.add(SUB_SELECT_QUERY_REF_T1 + "." + attributeList.get(i).getName() +
+                            SQL_AS + attributeList.get(i).getName());
+                } else if (expressionExecutor instanceof GroupByAggregationAttributeExecutor){
+                    if (((GroupByAggregationAttributeExecutor) expressionExecutor).getAttributeAggregator() instanceof
+                            MaxAttributeAggregator) {
+                        if (attributeList.get(i).getName().equals(AGG_LAST_TIMESTAMP_COL)) {
+                            innerSelectT2ColumnJoiner.add(dbAggregationSelectFunctionTemplates.getMaxFunction().
+                                    replace(PLACEHOLDER_COLUMN, attributeList.get(i).getName()));
+                            subSelectT2ColumnJoiner.add(attributeList.get(i).getName());
+                            outerSelectColumnJoiner.add(SUB_SELECT_QUERY_REF_T2 + "." + attributeList.get(i).getName() +
+                                    SQL_AS + attributeList.get(i).getName());
+                        } else {
+                            outerSelectColumnJoiner.add(SUB_SELECT_QUERY_REF_T1 + "." + attributeList.get(i).getName() + SQL_AS +
+                                    attributeList.get(i).getName());
+                            subSelectT1ColumnJoiner.add(dbAggregationSelectFunctionTemplates.getMaxFunction().replace(
+                                    PLACEHOLDER_COLUMN, attributeList.get(i).getName()) + SQL_AS +
+                                    attributeList.get(i).getName());
+                        }
+                    } else if (((GroupByAggregationAttributeExecutor) expressionExecutor).getAttributeAggregator() instanceof
+                            MinAttributeAggregator) {
                         outerSelectColumnJoiner.add(SUB_SELECT_QUERY_REF_T1 + "." + attributeList.get(i).getName() + SQL_AS +
                                 attributeList.get(i).getName());
-                        subSelectT1ColumnJoiner.add(dbAggregationSelectFunctionTemplates.getMaxFunction().replace(
+                        subSelectT1ColumnJoiner.add(dbAggregationSelectFunctionTemplates.getMinFunction().replace(
                                 PLACEHOLDER_COLUMN, attributeList.get(i).getName()) + SQL_AS +
                                 attributeList.get(i).getName());
+                    } else if (((GroupByAggregationAttributeExecutor) expressionExecutor).getAttributeAggregator() instanceof
+                            SumAttributeAggregator){
+                        outerSelectColumnJoiner.add(SUB_SELECT_QUERY_REF_T1 + "." + attributeList.get(i).getName() +
+                                SQL_AS + attributeList.get(i).getName());
+                        subSelectT1ColumnJoiner.add(dbAggregationSelectFunctionTemplates.getSumFunction().replace(
+                                PLACEHOLDER_COLUMN, attributeList.get(i).getName()) +
+                                SQL_AS + attributeList.get(i).getName());
                     }
-                } else if (expressionExecutor instanceof MaxAttributeAggregator) {
-                    outerSelectColumnJoiner.add(SUB_SELECT_QUERY_REF_T1 + "." + attributeList.get(i).getName() + SQL_AS +
-                            attributeList.get(i).getName());
-                    subSelectT1ColumnJoiner.add(dbAggregationSelectFunctionTemplates.getMinFunction().replace(
-                            PLACEHOLDER_COLUMN, attributeList.get(i).getName()) + SQL_AS +
-                            attributeList.get(i).getName());
-                } else if (expressionExecutor instanceof ConstantExpressionExecutor) {
-                    outerSelectColumnJoiner.add(SUB_SELECT_QUERY_REF_T1 + "." + attributeList.get(i).getName() +
-                            SQL_AS + attributeList.get(i).getName());
-                } else if (expressionExecutor instanceof SumAttributeAggregator) {
-                    outerSelectColumnJoiner.add(SUB_SELECT_QUERY_REF_T1 + "." + attributeList.get(i).getName() +
-                            SQL_AS + attributeList.get(i).getName());
-                    subSelectT1ColumnJoiner.add(dbAggregationSelectFunctionTemplates.getSumFunction().replace(
-                            PLACEHOLDER_COLUMN, attributeList.get(i).getName()) +
-                            SQL_AS + attributeList.get(i).getName());
                 }
                 i++;
             }
@@ -1344,18 +1351,23 @@ public class AggregationParser {
                     } else {
                         subSelectT1ColumnJoiner.add(attributeList.get(i).getName());
                     }
-                } else if (executor instanceof SumAttributeAggregator) {
-                    subSelectT1ColumnJoiner.add(dbAggregationSelectFunctionTemplates.getSumFunction().
-                            replace(PLACEHOLDER_COLUMN, attributeList.get(i).getName()).concat(SQL_AS).
-                            concat(attributeList.get(i).getName()));
-                } else if (executor instanceof MinAttributeAggregator) {
-                    subSelectT1ColumnJoiner.add(dbAggregationSelectFunctionTemplates.getMinFunction().
-                            replace(PLACEHOLDER_COLUMN, attributeList.get(i).getName()).concat(SQL_AS).
-                            concat(attributeList.get(i).getName()));
-                } else if (executor instanceof MaxAttributeAggregator) {
-                    subSelectT1ColumnJoiner.add(dbAggregationSelectFunctionTemplates.getMaxFunction().
-                            replace(PLACEHOLDER_COLUMN, attributeList.get(i).getName()).concat(SQL_AS).
-                            concat(attributeList.get(i).getName()));
+                } else if( executor instanceof GroupByAggregationAttributeExecutor) {
+                    if (((GroupByAggregationAttributeExecutor) executor).getAttributeAggregator() instanceof
+                            SumAttributeAggregator) {
+                        subSelectT1ColumnJoiner.add(dbAggregationSelectFunctionTemplates.getSumFunction().
+                                replace(PLACEHOLDER_COLUMN, attributeList.get(i).getName()).concat(SQL_AS).
+                                concat(attributeList.get(i).getName()));
+                    } else if (((GroupByAggregationAttributeExecutor) executor).getAttributeAggregator() instanceof
+                            MinAttributeAggregator) {
+                        subSelectT1ColumnJoiner.add(dbAggregationSelectFunctionTemplates.getMinFunction().
+                                replace(PLACEHOLDER_COLUMN, attributeList.get(i).getName()).concat(SQL_AS).
+                                concat(attributeList.get(i).getName()));
+                    } else if (((GroupByAggregationAttributeExecutor) executor).getAttributeAggregator() instanceof
+                            MaxAttributeAggregator) {
+                        subSelectT1ColumnJoiner.add(dbAggregationSelectFunctionTemplates.getMaxFunction().
+                                replace(PLACEHOLDER_COLUMN, attributeList.get(i).getName()).concat(SQL_AS).
+                                concat(attributeList.get(i).getName()));
+                    }
                 }
                 i++;
             }
@@ -1411,7 +1423,8 @@ public class AggregationParser {
                 (Extension) streamHandler,
                 StreamProcessorExtensionHolder.getInstance(siddhiAppContext));
         abstractStreamProcessor.initProcessor(metaStreamEvent.getLastInputDefinition(), attributeExpressionExecutors
-                , configReader, siddhiAppContext, false, null, streamHandler);
+                , configReader, siddhiAppContext, false,
+                metaStreamEvent.getLastInputDefinition().getId(), streamHandler);
 
         if (metaStreamEvent.getInputDefinitions().size() == 2) {
             AbstractDefinition outputDefinition = metaStreamEvent.getInputDefinitions().get(1);
