@@ -26,7 +26,7 @@
     <groupId>org.wso2.siddhi</groupId>
     <artifactId>siddhi</artifactId>
     <packaging>pom</packaging>
-    <version>4.5.9.2</version>
+    <version>4.5.9.3-SNAPSHOT</version>
     <name>Siddhi</name>
     <description>Siddhi, high performing Complex Event Processing Engine</description>
 
@@ -548,5 +548,5 @@
 
     </pluginRepositories>
 
-<scm><url>https://github.com/wso2-support/siddhi</url><developerConnection>scm:git:https://github.com/wso2-support/siddhi</developerConnection><connection>scm:git:https://github.com/wso2-support/siddhi</connection>  <tag>v4.5.9.2</tag>
+<scm><url>https://github.com/wso2-support/siddhi</url><developerConnection>scm:git:https://github.com/wso2-support/siddhi</developerConnection><connection>scm:git:https://github.com/wso2-support/siddhi</connection>  <tag>HEAD</tag>
   </scm></project>
