@@ -364,7 +364,6 @@ public class AggregationParser {
                                         AttributeFunction.function(
                                                 "incrementalAggregator", "getAggregationStartTime",
                                                 new Variable(AGG_EXTERNAL_TIMESTAMP_COL),
-                                                new StringConstant(timeZone),
                                                 new StringConstant(incrementalDuration.name())
                                         );
                                 groupByExpressionList.add(externalTimestampExpression);
@@ -635,7 +634,6 @@ public class AggregationParser {
                     AttributeFunction.function(
                             "incrementalAggregator", "getAggregationStartTime",
                             new Variable(AGG_EXTERNAL_TIMESTAMP_COL),
-                            new StringConstant(getTimeZone(siddhiAppContext)),
                             new StringConstant(duration.name())
                     );
             ExpressionExecutor externalTimestampExecutor = ExpressionParser.parseExpression(
