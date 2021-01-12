@@ -50,7 +50,7 @@ import static org.wso2.siddhi.core.util.SiddhiConstants.AGG_START_TIMESTAMP_COL;
 public class IncrementalExecutorsInitialiser {
     private final List<TimePeriod.Duration> incrementalDurations;
     private final Map<TimePeriod.Duration, Table> aggregationTables;
-    private final Map<TimePeriod.Duration, IncrementalExecutor> incrementalExecutorMap;
+    private final Map<TimePeriod.Duration, Executor> incrementalExecutorMap;
 
     private final boolean isDistributed;
     private final String shardId;
@@ -66,7 +66,7 @@ public class IncrementalExecutorsInitialiser {
 
     public IncrementalExecutorsInitialiser(List<TimePeriod.Duration> incrementalDurations,
                                            Map<TimePeriod.Duration, Table> aggregationTables,
-                                           Map<TimePeriod.Duration, IncrementalExecutor> incrementalExecutorMap,
+                                           Map<TimePeriod.Duration, Executor> incrementalExecutorMap,
                                            boolean isDistributed, String shardId, SiddhiAppContext siddhiAppContext,
                                            MetaStreamEvent metaStreamEvent, Map<String, Table> tableMap,
                                            Map<String, Window> windowMap,
@@ -114,7 +114,7 @@ public class IncrementalExecutorsInitialiser {
         for (int i = incrementalDurations.size() - 1; i > 0; i--) {
             TimePeriod.Duration recreateForDuration = incrementalDurations.get(i);
 
-            IncrementalExecutor incrementalExecutor = incrementalExecutorMap.get(recreateForDuration);
+            Executor incrementalExecutor = incrementalExecutorMap.get(recreateForDuration);
 
             // Get the table previous to the duration for which we need to recreate (e.g. if we want to recreate
             // for minute duration, take the second table [provided that aggregation is done for seconds])
@@ -142,7 +142,7 @@ public class IncrementalExecutorsInitialiser {
 
                 if (i == 1) {
                     TimePeriod.Duration rootDuration = incrementalDurations.get(0);
-                    IncrementalExecutor rootIncrementalExecutor = incrementalExecutorMap.get(rootDuration);
+                    Executor rootIncrementalExecutor = incrementalExecutorMap.get(rootDuration);
                     long emitTimeOfLatestEventInTable = IncrementalTimeConverterUtil.getNextEmitTime(
                             referenceToNextLatestEvent, rootDuration, timeZone);
 
