@@ -27,7 +27,7 @@ import org.wso2.siddhi.query.api.definition.Attribute;
  * Abstract class to represent attribute aggregations.
  */
 public abstract class AbstractAggregationAttributeExecutor implements ExpressionExecutor, Snapshotable {
-    private AttributeAggregator attributeAggregator;
+    public AttributeAggregator attributeAggregator;
     protected ExpressionExecutor[] attributeExpressionExecutors;
     protected SiddhiAppContext siddhiAppContext;
     protected int size;
