@@ -49,6 +49,7 @@ public class PersistedIncrementalExecutor implements Executor, Snapshotable {
     private static final Logger log = Logger.getLogger(PersistedIncrementalExecutor.class);
 
     private final ExpressionExecutor timestampExpressionExecutor;
+    private final String aggregatorName;
     private TimePeriod.Duration duration;
     private Executor next;
     private StreamEventFactory streamEventFactory;
@@ -60,7 +61,6 @@ public class PersistedIncrementalExecutor implements Executor, Snapshotable {
     private StreamEventPool streamEventPool;
     private boolean timerStarted = false;
     private String elementId;
-    private final String aggregatorName;
     private SiddhiAppContext siddhiAppContext;
 
     public PersistedIncrementalExecutor(String aggregatorName, TimePeriod.Duration duration,
@@ -144,9 +144,10 @@ public class PersistedIncrementalExecutor implements Executor, Snapshotable {
                 } catch (Exception e) {
                     if (e.getCause() instanceof SQLException) {
                         if (e.getCause().getLocalizedMessage().contains("try restarting transaction") && i < 3) {
-                            log.error("Error occurred while executing the aggregation for data between " +
-                                    startTimeOfNewAggregates + " - " + emittedTime + " for duration " + duration +
-                                    " Retrying the transaction attempt " + (i - 1), e);
+                            log.error("Error occurred while executing the aggregation " + aggregatorName +
+                                    " for data between " + startTimeOfNewAggregates + " - " +
+                                    emittedTime + " for duration " + duration + " Retrying the transaction attempt "
+                                    + (i - 1), e);
                             try {
                                 Thread.sleep(3000);
                             } catch (InterruptedException interruptedException) {
@@ -155,9 +156,9 @@ public class PersistedIncrementalExecutor implements Executor, Snapshotable {
                             }
                             continue;
                         }
-                        log.error("Error occurred while executing the aggregation for data between "
-                                + startTimeOfNewAggregates + " - " + emittedTime + " for duration " + duration +
-                                ". Attempted re-executing the query for 9 seconds. " +
+                        log.error("Error occurred while executing the aggregation " + aggregatorName +
+                                "for data between " + startTimeOfNewAggregates + " - " + emittedTime +
+                                " for duration " + duration + ". Attempted re-executing the query for 9 seconds. " +
                                 "This Should be investigated since this will lead to a data mismatch\n", e);
                     } else {
                         log.error("Error occurred while executing the aggregation for data between "

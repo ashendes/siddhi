@@ -1154,11 +1154,14 @@ public class AggregationParser {
                 generateCUDInputStreamAttributes(isProcessingOnExternalTime);
         StreamDefinition inputDefinition = new StreamDefinition();
         inputDefinition.setId("inputStream");
+        Attribute numRecordsAtt = new Attribute("numRecords", Attribute.Type.INT);
         for (Attribute attribute : cudInputStreamAttributesList.keySet()) {
             metaStreamEvent.addData(attribute);
             inputDefinition.attribute(attribute.getName(), attribute.getType());
+            metaStreamEvent.addOutputData(attribute);
         }
         metaStreamEvent.addInputDefinition(inputDefinition);
+        metaStreamEvent.addOutputData(numRecordsAtt);
         metaStreamEvent.setEventType(MetaStreamEvent.EventType.DEFAULT);
         return metaStreamEvent;
     }
@@ -1265,10 +1268,10 @@ public class AggregationParser {
                     } else {
                         outerSelectColumnJoiner.add(" ? " + SQL_AS + attributeList.get(i).getName());
                     }
-                } else if (expressionExecutor instanceof ConstantExpressionExecutor){
+                } else if (expressionExecutor instanceof ConstantExpressionExecutor) {
                     outerSelectColumnJoiner.add(SUB_SELECT_QUERY_REF_T1 + "." + attributeList.get(i).getName() +
                             SQL_AS + attributeList.get(i).getName());
-                } else if (expressionExecutor instanceof GroupByAggregationAttributeExecutor){
+                } else if (expressionExecutor instanceof GroupByAggregationAttributeExecutor) {
                     if (((GroupByAggregationAttributeExecutor) expressionExecutor).getAttributeAggregator() instanceof
                             MaxAttributeAggregator) {
                         if (attributeList.get(i).getName().equals(AGG_LAST_TIMESTAMP_COL)) {
@@ -1292,7 +1295,7 @@ public class AggregationParser {
                                 PLACEHOLDER_COLUMN, attributeList.get(i).getName()) + SQL_AS +
                                 attributeList.get(i).getName());
                     } else if (((GroupByAggregationAttributeExecutor) expressionExecutor).getAttributeAggregator() instanceof
-                            SumAttributeAggregator){
+                            SumAttributeAggregator) {
                         outerSelectColumnJoiner.add(SUB_SELECT_QUERY_REF_T1 + "." + attributeList.get(i).getName() +
                                 SQL_AS + attributeList.get(i).getName());
                         subSelectT1ColumnJoiner.add(dbAggregationSelectFunctionTemplates.getSumFunction().replace(
@@ -1351,7 +1354,7 @@ public class AggregationParser {
                     } else {
                         subSelectT1ColumnJoiner.add(attributeList.get(i).getName());
                     }
-                } else if( executor instanceof GroupByAggregationAttributeExecutor) {
+                } else if (executor instanceof GroupByAggregationAttributeExecutor) {
                     if (((GroupByAggregationAttributeExecutor) executor).getAttributeAggregator() instanceof
                             SumAttributeAggregator) {
                         subSelectT1ColumnJoiner.add(dbAggregationSelectFunctionTemplates.getSumFunction().
@@ -1436,6 +1439,7 @@ public class AggregationParser {
         }
         abstractStreamProcessor.constructStreamEventPopulater(metaStreamEvent, 0);
         abstractStreamProcessor.setNextProcessor(new PersistedAggregationResultsProcessor(duration));
+
         return abstractStreamProcessor;
     }
 
