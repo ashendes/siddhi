@@ -207,5 +207,14 @@
         <Package name="~org\.wso2\.siddhi\.sample.*"/>
     </Match>
 
+    <Match>
+        <Class name="org.wso2.siddhi.core.aggregation.persistedaggregation.config.DBAggregationQueryConfiguration"/>
+        <Bug pattern="EI_EXPOSE_REP, EI_EXPOSE_REP2"/>
+    </Match>
+
+    <Match>
+        <Class name="org.wso2.siddhi.core.aggregation.persistedaggregation.config.DBAggregationQueryUtil"/>
+        <Bug pattern="LI_LAZY_INIT_STATIC"/>
+    </Match>
 
 </FindBugsFilter>

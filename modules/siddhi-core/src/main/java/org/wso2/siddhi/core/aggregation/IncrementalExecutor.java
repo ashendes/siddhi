@@ -40,6 +40,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
 
 /**
  * Incremental executor class which is responsible for performing incremental aggregation.
@@ -50,6 +53,8 @@ public class IncrementalExecutor implements Executor, Snapshotable {
     private final StreamEvent resetEvent;
     private final ExpressionExecutor timestampExpressionExecutor;
     private final String aggregatorName;
+    private final Lock lock = new ReentrantLock();
+    boolean waitUntillprocessFinish = false;
     private TimePeriod.Duration duration;
     private Table table;
     private GroupByKeyGenerator groupByKeyGenerator;
@@ -74,10 +79,11 @@ public class IncrementalExecutor implements Executor, Snapshotable {
                                List<ExpressionExecutor> processExpressionExecutors,
                                ExpressionExecutor shouldUpdateTimestamp,
                                GroupByKeyGenerator groupByKeyGenerator, MetaStreamEvent metaStreamEvent,
-                               IncrementalExecutor child, boolean isRoot, Table table,
-                               SiddhiAppContext siddhiAppContext, String timeZone) {
+                               Executor child, boolean isRoot, Table table,
+                               SiddhiAppContext siddhiAppContext, String timeZone, boolean waitUntillprocessFinish) {
         this.timeZone = timeZone;
         this.duration = duration;
+        this.waitUntillprocessFinish = waitUntillprocessFinish;
         this.next = child;
         this.isRoot = isRoot;
         this.table = table;
@@ -230,6 +236,7 @@ public class IncrementalExecutor implements Executor, Snapshotable {
     }
 
     private void dispatchEvent(long startTimeOfNewAggregates, BaseIncrementalValueStore aBaseIncrementalValueStore) {
+        AtomicBoolean isProcessFinished = new AtomicBoolean(false);
         if (aBaseIncrementalValueStore.isProcessed()) {
             ComplexEventChunk<StreamEvent> eventChunk = new ComplexEventChunk<>(true);
             ComplexEventChunk<StreamEvent> tableEventChunk = new ComplexEventChunk<>(true);
@@ -239,14 +246,27 @@ public class IncrementalExecutor implements Executor, Snapshotable {
                 LOG.debug("Event dispatched by " + this.duration + " incremental executor: " + eventChunk.toString());
             }
             if (isProcessingExecutor) {
-                executorService.execute(() -> {
-                    try {
+                try {
+                    executorService.execute(() -> {
                         table.addEvents(tableEventChunk, 1);
-                    } catch (Throwable t) {
-                        LOG.error("Exception occurred when writing to aggregation table of duration '" +
-                                this.duration + "'. This should be investigated as this can cause accuracy loss.", t);
+                        isProcessFinished.set(true);
+                    });
+                } catch (Throwable t) {
+                    LOG.error("Exception occurred at siddhi app '" + this.siddhiAppContext.getName() +
+                            "' when performing table writes of aggregation '" + this.aggregatorName +
+                            "' for duration '" + this.duration + "'. This should be investigated as this " +
+                            "can cause accuracy loss.", t);
+                }
+            }
+            if (waitUntillprocessFinish) {
+                try {
+                    while (!isProcessFinished.get()) {
+                        Thread.sleep(1000);
                     }
-                });
+                } catch (InterruptedException e) {
+                    LOG.error("Error occurred while waiting until table update task finishes for duration " +
+                            duration, e);
+                }
             }
             if (getNextExecutor() != null) {
                 next.execute(eventChunk);
@@ -256,6 +276,7 @@ public class IncrementalExecutor implements Executor, Snapshotable {
     }
 
     private void dispatchEvents(Map<String, BaseIncrementalValueStore> baseIncrementalValueGroupByStore) {
+        AtomicBoolean isProcessFinished = new AtomicBoolean(false);
         int noOfEvents = baseIncrementalValueGroupByStore.size();
         if (noOfEvents > 0) {
             ComplexEventChunk<StreamEvent> eventChunk = new ComplexEventChunk<>(true);
@@ -268,14 +289,27 @@ public class IncrementalExecutor implements Executor, Snapshotable {
                 LOG.debug("Event dispatched by " + this.duration + " incremental executor: " + eventChunk.toString());
             }
             if (isProcessingExecutor) {
-                executorService.execute(() -> {
-                    try {
+                try {
+                    executorService.execute(() -> {
                         table.addEvents(tableEventChunk, noOfEvents);
-                    } catch (Throwable t) {
-                        LOG.error("Exception occurred when writing to aggregation table of duration '" +
-                                this.duration + "'. This should be investigated as this can cause accuracy loss.", t);
+                        isProcessFinished.set(true);
+                    });
+                } catch (Throwable t) {
+                    LOG.error("Exception occurred at siddhi app '" + this.siddhiAppContext.getName() +
+                            "' when performing table writes of aggregation '" + this.aggregatorName +
+                            "' for duration '" + this.duration + "'. This should be investigated as this " +
+                            "can cause accuracy loss.", t);
+                }
+            }
+            if (waitUntillprocessFinish) {
+                try {
+                    while (!isProcessFinished.get()) {
+                        Thread.sleep(1000);
                     }
-                });
+                } catch (InterruptedException e) {
+                    LOG.error("Error occurred while waiting until table update task finishes for duration " +
+                            duration, e);
+                }
             }
             if (getNextExecutor() != null) {
                 next.execute(eventChunk);

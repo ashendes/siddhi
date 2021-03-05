@@ -66,6 +66,10 @@ public class EntryValveExecutor implements Executor, Schedulable {
         next = executor;
     }
 
+    @Override
+    public void setEmitTimestamp(long emitTimeOfLatestEventInTable) {
+    }
+
     /**
      * Implements process method in Schedulable interface.
      * Same logic in execute method applies here
