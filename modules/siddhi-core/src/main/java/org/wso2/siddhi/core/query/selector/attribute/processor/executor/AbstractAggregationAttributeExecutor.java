@@ -27,7 +27,7 @@ import org.wso2.siddhi.query.api.definition.Attribute;
  * Abstract class to represent attribute aggregations.
  */
 public abstract class AbstractAggregationAttributeExecutor implements ExpressionExecutor, Snapshotable {
-    protected AttributeAggregator attributeAggregator;
+    public AttributeAggregator attributeAggregator;
     protected ExpressionExecutor[] attributeExpressionExecutors;
     protected SiddhiAppContext siddhiAppContext;
     protected int size;
@@ -66,6 +66,14 @@ public abstract class AbstractAggregationAttributeExecutor implements Expression
         }
         attributeAggregator.clean();
         siddhiAppContext.getSnapshotService().removeSnapshotable(queryName, this);
+    }
+
+    public AttributeAggregator getAttributeAggregator() {
+        return attributeAggregator;
+    }
+
+    public void setAttributeAggregator(AttributeAggregator attributeAggregator) {
+        this.attributeAggregator = attributeAggregator;
     }
 }
 
