@@ -118,6 +118,7 @@ import static org.wso2.siddhi.core.util.SiddhiConstants.ANNOTATION_PRIMARY_KEY;
 import static org.wso2.siddhi.core.util.SiddhiConstants.EQUALS;
 import static org.wso2.siddhi.core.util.SiddhiConstants.FROM_TIMESTAMP;
 import static org.wso2.siddhi.core.util.SiddhiConstants.FUNCTION_NAME_CUD;
+import static org.wso2.siddhi.core.util.SiddhiConstants.INNER_SELECT_QUERY_REF_T3;
 import static org.wso2.siddhi.core.util.SiddhiConstants.METRIC_INFIX_AGGREGATIONS;
 import static org.wso2.siddhi.core.util.SiddhiConstants.METRIC_TYPE_FIND;
 import static org.wso2.siddhi.core.util.SiddhiConstants.METRIC_TYPE_INSERT;
@@ -127,12 +128,15 @@ import static org.wso2.siddhi.core.util.SiddhiConstants.PLACEHOLDER_COLUMNS;
 import static org.wso2.siddhi.core.util.SiddhiConstants.PLACEHOLDER_CONDITION;
 import static org.wso2.siddhi.core.util.SiddhiConstants.PLACEHOLDER_DURATION;
 import static org.wso2.siddhi.core.util.SiddhiConstants.PLACEHOLDER_FROM_CONDITION;
-import static org.wso2.siddhi.core.util.SiddhiConstants.PLACEHOLDER_INNER_QUERY;
+import static org.wso2.siddhi.core.util.SiddhiConstants.PLACEHOLDER_INNER_QUERY_1;
+import static org.wso2.siddhi.core.util.SiddhiConstants.PLACEHOLDER_INNER_QUERY_2;
+import static org.wso2.siddhi.core.util.SiddhiConstants.PLACEHOLDER_ON_CONDITION;
 import static org.wso2.siddhi.core.util.SiddhiConstants.PLACEHOLDER_SELECTORS;
 import static org.wso2.siddhi.core.util.SiddhiConstants.PLACEHOLDER_TABLE_NAME;
 import static org.wso2.siddhi.core.util.SiddhiConstants.SQL_AND;
 import static org.wso2.siddhi.core.util.SiddhiConstants.SQL_AS;
 import static org.wso2.siddhi.core.util.SiddhiConstants.SQL_FROM;
+import static org.wso2.siddhi.core.util.SiddhiConstants.SQL_NOT_NULL;
 import static org.wso2.siddhi.core.util.SiddhiConstants.SQL_SELECT;
 import static org.wso2.siddhi.core.util.SiddhiConstants.SQL_WHERE;
 import static org.wso2.siddhi.core.util.SiddhiConstants.SUB_SELECT_QUERY_REF_T1;
@@ -1190,6 +1194,7 @@ public class AggregationParser {
         StringJoiner innerSelectT2ColumnJoiner = new StringJoiner(", ", SQL_SELECT, " ");
 
         StringJoiner onConditionBuilder = new StringJoiner(SQL_AND);
+        StringJoiner subSelectT2OnConditionBuilder = new StringJoiner(SQL_AND);
 
         StringJoiner groupByQueryBuilder = new StringJoiner(", ");
         StringJoiner finalSelectQuery = new StringJoiner(" ");
@@ -1201,6 +1206,7 @@ public class AggregationParser {
         String innerFromClause = SQL_FROM + parentAggregationTable.getTableDefinition().getId();
         String innerWhereFilterClause;
         String groupByClause;
+        String innerT2WhereCondition;
 
         StringJoiner innerT2Query = new StringJoiner(" ");
         StringJoiner subQueryT1 = new StringJoiner(" ");
@@ -1229,7 +1235,13 @@ public class AggregationParser {
                 groupByQueryBuilder.add(variable.getAttributeName());
                 onConditionBuilder.add(SUB_SELECT_QUERY_REF_T1 + "." + variable.getAttributeName() +
                         EQUALS + SUB_SELECT_QUERY_REF_T2 + "." + variable.getAttributeName());
+                subSelectT2OnConditionBuilder.add(parentAggregationTable.getTableDefinition().getId() + "." +
+                        variable.getAttributeName() + EQUALS + INNER_SELECT_QUERY_REF_T3 + "." +
+                        variable.getAttributeName());
             });
+
+            innerT2WhereCondition = INNER_SELECT_QUERY_REF_T3 + "." + groupByVariableList.get(0).getAttributeName() +
+                    SQL_NOT_NULL;
 
             for (ExpressionExecutor expressionExecutor : expressionExecutors) {
 
@@ -1239,13 +1251,17 @@ public class AggregationParser {
                             .equals(AGG_START_TIMESTAMP_COL)) {
                         outerSelectColumnJoiner.add(" ? " + SQL_AS + variableExpressionExecutor.getAttribute().getName());
                     } else if (!variableExpressionExecutor.getAttribute().getName().equals(AGG_EXTERNAL_TIMESTAMP_COL)) {
-                        subSelectT2ColumnJoiner.add(variableExpressionExecutor.getAttribute().getName());
                         if (groupByColumnNames.contains(variableExpressionExecutor.getAttribute().getName())) {
+                            subSelectT2ColumnJoiner.add(INNER_SELECT_QUERY_REF_T3 + "." +
+                                    variableExpressionExecutor.getAttribute().getName() + SQL_AS +
+                                    variableExpressionExecutor.getAttribute().getName()) ;
                             outerSelectColumnJoiner.add(SUB_SELECT_QUERY_REF_T1 + "." +
                                     variableExpressionExecutor.getAttribute().getName() +
                                     SQL_AS + attributeList.get(i).getName());
                             subSelectT1ColumnJoiner.add(variableExpressionExecutor.getAttribute().getName());
+                            innerSelectT2ColumnJoiner.add(variableExpressionExecutor.getAttribute().getName());
                         } else {
+                            subSelectT2ColumnJoiner.add(variableExpressionExecutor.getAttribute().getName());
                             outerSelectColumnJoiner.add(SUB_SELECT_QUERY_REF_T2 + "." +
                                     variableExpressionExecutor.getAttribute().getName() +
                                     SQL_AS + attributeList.get(i).getName());
@@ -1276,10 +1292,15 @@ public class AggregationParser {
                             MaxAttributeAggregator) {
                         if (attributeList.get(i).getName().equals(AGG_LAST_TIMESTAMP_COL)) {
                             innerSelectT2ColumnJoiner.add(dbAggregationSelectFunctionTemplates.getMaxFunction().
-                                    replace(PLACEHOLDER_COLUMN, attributeList.get(i).getName()));
-                            subSelectT2ColumnJoiner.add(attributeList.get(i).getName());
+                                    replace(PLACEHOLDER_COLUMN, attributeList.get(i).getName()) + SQL_AS +
+                                    attributeList.get(i).getName());
+                            subSelectT2ColumnJoiner.add(INNER_SELECT_QUERY_REF_T3 + "." + attributeList.get(i).getName() +
+                                    SQL_AS + attributeList.get(i).getName());
                             outerSelectColumnJoiner.add(SUB_SELECT_QUERY_REF_T2 + "." + attributeList.get(i).getName() +
                                     SQL_AS + attributeList.get(i).getName());
+                            subSelectT2OnConditionBuilder.add(parentAggregationTable.getTableDefinition().getId() + "." +
+                                    attributeList.get(i).getName() + EQUALS + INNER_SELECT_QUERY_REF_T3 + "." +
+                                    attributeList.get(i).getName());
                         } else {
                             outerSelectColumnJoiner.add(SUB_SELECT_QUERY_REF_T1 + "." + attributeList.get(i).getName() + SQL_AS +
                                     attributeList.get(i).getName());
@@ -1324,13 +1345,14 @@ public class AggregationParser {
             subQueryT2.add(dbAggregationSelectQueryTemplate.getSelectQueryWithInnerSelect().
                     replace(PLACEHOLDER_SELECTORS, subSelectT2ColumnJoiner.toString()).
                     replace(PLACEHOLDER_TABLE_NAME, parentAggregationTable.getTableDefinition().getId()).
-                    replace(PLACEHOLDER_COLUMN, AGG_LAST_TIMESTAMP_COL).
-                    replace(PLACEHOLDER_INNER_QUERY, innerT2Query.toString()));
+                    replace(PLACEHOLDER_INNER_QUERY_2, innerT2Query.toString()).
+                    replace(PLACEHOLDER_ON_CONDITION, subSelectT2OnConditionBuilder.toString()).
+                    replace(PLACEHOLDER_CONDITION, innerT2WhereCondition));
 
             finalSelectQuery.add(dbAggregationSelectQueryTemplate.getJoinClause().
                     replace(PLACEHOLDER_SELECTORS, outerSelectColumnJoiner.toString()).
                     replace(PLACEHOLDER_FROM_CONDITION, subQueryT1.toString()).
-                    replace(PLACEHOLDER_INNER_QUERY, subQueryT2.toString()).
+                    replace(PLACEHOLDER_INNER_QUERY_1, subQueryT2.toString()).
                     replace(PLACEHOLDER_CONDITION, onConditionBuilder.toString()));
 
             completeQuery.add(insertIntoQueryBuilder.toString()).add(finalSelectQuery.toString());
@@ -1402,7 +1424,7 @@ public class AggregationParser {
             return Database.MYSQL;
         } else if (databaseType.contains("oracle")) {
             return Database.ORACLE;
-        } else if (databaseType.contains("mssql")) {
+        } else if (databaseType.contains("mssql") || databaseType.contains("sqlserver")) {
             return Database.MSSQL;
         } else if (databaseType.contains("postgres")) {
             return Database.PostgreSQL;

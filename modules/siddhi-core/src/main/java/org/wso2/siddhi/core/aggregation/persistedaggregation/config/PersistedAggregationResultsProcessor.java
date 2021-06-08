@@ -44,8 +44,10 @@ public class PersistedAggregationResultsProcessor implements Processor {
             if (outputData.length == 3) {
                 Date fromTime = new Date((Long) outputData[0]);
                 Date toTime = new Date((Long) outputData[1]);
-                log.info("Aggregation executed for duration " + duration + " from " + fromTime + " to " +
-                        toTime + " and  " + outputData[2] + " records has been successfully updated ");
+                if (log.isDebugEnabled()) {
+                    log.debug("Aggregation executed for duration " + duration + " from " + fromTime + " to " +
+                            toTime + " and  " + outputData[2] + " records has been successfully updated ");
+                }
             }
         }
     }
