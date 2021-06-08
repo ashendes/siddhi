@@ -25,7 +25,9 @@ import org.wso2.siddhi.core.aggregation.IncrementalAggregationProcessor;
 import org.wso2.siddhi.core.aggregation.IncrementalDataPurger;
 import org.wso2.siddhi.core.aggregation.IncrementalExecutor;
 import org.wso2.siddhi.core.aggregation.IncrementalExecutorsInitialiser;
+import org.wso2.siddhi.core.aggregation.persistedaggregation.CudStreamProcessorQueueManager;
 import org.wso2.siddhi.core.aggregation.persistedaggregation.PersistedIncrementalExecutor;
+import org.wso2.siddhi.core.aggregation.persistedaggregation.QueuedCudStreamProcessor;
 import org.wso2.siddhi.core.aggregation.persistedaggregation.config.DBAggregationQueryConfigurationEntry;
 import org.wso2.siddhi.core.aggregation.persistedaggregation.config.DBAggregationQueryUtil;
 import org.wso2.siddhi.core.aggregation.persistedaggregation.config.DBAggregationSelectFunctionTemplate;
@@ -100,6 +102,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.StringJoiner;
 import java.util.TimeZone;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.stream.Collectors;
 
@@ -554,6 +557,13 @@ public class AggregationParser {
             cudProcessors = initAggregateQueryExecutor(incrementalDurations, processExpressionExecutorsMap,
                     incomingOutputStreamDefinition, isDistributed, shardId, isProcessingOnExternalTime,
                     siddhiAppContext, aggregationDefinition, configManager, aggregationTables, groupByVariableList);
+            CudStreamProcessorQueueManager queueManager = new CudStreamProcessorQueueManager();
+
+            //initialize cud stream processor queue
+            LinkedBlockingQueue<QueuedCudStreamProcessor> cudStreamProcessorQueue =
+                    queueManager.initializeAndGetCudStreamProcessorQueue();
+
+            siddhiAppContext.getExecutorService().execute(queueManager);
             for (int i = incrementalDurations.size() - 1; i >= 0; i--) {
                 // Base incremental expression executors created using new meta
 
@@ -578,7 +588,7 @@ public class AggregationParser {
                     incrementalExecutor = new PersistedIncrementalExecutor(aggregatorName, duration,
                             processExpressionExecutorsMap.get(duration),
                             child, generateCUDMetaStreamEvent(isProcessingOnExternalTime), timeZone,
-                            cudProcessors.get(duration), siddhiAppContext);
+                            cudProcessors.get(duration), siddhiAppContext, cudStreamProcessorQueue);
                 }
                 incrementalExecutorMap.put(duration, incrementalExecutor);
                 root = incrementalExecutor;
