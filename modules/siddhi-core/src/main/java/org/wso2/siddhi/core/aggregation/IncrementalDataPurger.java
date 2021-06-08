@@ -46,6 +46,7 @@ import org.wso2.siddhi.query.api.definition.Attribute;
 import org.wso2.siddhi.query.api.definition.TableDefinition;
 import org.wso2.siddhi.query.api.execution.query.StoreQuery;
 import org.wso2.siddhi.query.api.execution.query.input.store.InputStore;
+import org.wso2.siddhi.query.api.execution.query.selection.OrderByAttribute;
 import org.wso2.siddhi.query.api.execution.query.selection.OutputAttribute;
 import org.wso2.siddhi.query.api.execution.query.selection.Selector;
 import org.wso2.siddhi.query.api.expression.Expression;
@@ -411,6 +412,7 @@ public class IncrementalDataPurger implements Runnable {
         outputAttributes.add(new OutputAttribute(new Variable(AGG_START_TIMESTAMP_COL)));
         Selector selector = Selector.selector().addSelectionList(outputAttributes)
                 .groupBy(Expression.variable(AGG_START_TIMESTAMP_COL))
+                .orderBy(Expression.variable(AGG_START_TIMESTAMP_COL), OrderByAttribute.Order.DESC)
                 .limit(Expression.value(1));
         InputStore inputStore;
         if (timeTo != 0) {
