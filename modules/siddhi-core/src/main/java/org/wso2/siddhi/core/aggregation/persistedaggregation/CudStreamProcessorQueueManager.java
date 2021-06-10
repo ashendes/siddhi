@@ -17,8 +17,8 @@
  */
 package org.wso2.siddhi.core.aggregation.persistedaggregation;
 
-import org.wso2.siddhi.core.event.ComplexEventChunk;
 import org.apache.log4j.Logger;
+import org.wso2.siddhi.core.event.ComplexEventChunk;
 
 import java.sql.SQLException;
 import java.util.concurrent.LinkedBlockingQueue;
