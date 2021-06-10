@@ -586,7 +586,7 @@ public class AggregationParser {
                             duration.equals(TimePeriod.Duration.HOURS));
                 } else {
                     incrementalExecutor = new PersistedIncrementalExecutor(aggregatorName, duration,
-                            processExpressionExecutorsMap.get(duration),
+                            getExpressionExecutorClones(processExpressionExecutorsMap.get(duration)),
                             child, generateCUDMetaStreamEvent(isProcessingOnExternalTime), timeZone,
                             cudProcessors.get(duration), siddhiAppContext, cudStreamProcessorQueue);
                 }
